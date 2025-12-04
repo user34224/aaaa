@@ -1,5 +1,6 @@
 const express = require("express");
 const sharp = require("sharp");
+const opentype = require('opentype.js');
 const path = require("path");
 const fs = require("fs");
 
@@ -37,7 +38,7 @@ app.get("/image", async (req, res) => {
         const padding = 40;
         const boxPadding = 30;
         const lineHeight = fontSize_ + 8;
-        
+
         // 밑부분 반투명 검은색 박스 설정
         const boxHeight = Math.floor(height * 0.25);
         const boxMargin = 20;
@@ -45,7 +46,7 @@ app.get("/image", async (req, res) => {
         const boxWidth = width - (boxMargin * 2);
         const boxRadius = 15;
 
-        // 로컬 TTF 파일을 base64로 읽어 SVG에 임베드 (한글 폰트 깨짐 해결)
+        // 로컬 TTF 파일 경로
         const fontPath = path.join(__dirname, "font", "Nanum.ttf");
         let fontBase64 = null;
         try {
@@ -54,6 +55,19 @@ app.get("/image", async (req, res) => {
             }
         } catch (e) {
             console.warn('폰트 로드 실패:', e.message);
+        }
+
+        // opentype으로 폰트 로드 시도 (텍스트를 path로 렌더링)
+        let fontObj = null;
+        try {
+            if (fs.existsSync(fontPath)) {
+                fontObj = await new Promise((resolve, reject) => {
+                    opentype.load(fontPath, (err, f) => err ? reject(err) : resolve(f));
+                });
+            }
+        } catch (e) {
+            console.warn('opentype 로드 실패:', e.message);
+            fontObj = null;
         }
 
         let textSvg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
@@ -73,37 +87,73 @@ app.get("/image", async (req, res) => {
         const charWidth = fontSize_ * 0.55;
         const maxCharsPerLine = Math.floor(maxWidth / charWidth);
 
-        // 이름 표시
-        if (name) {
-            textSvg += `<text x="${boxMargin + padding}" y="${nameY}" font-size="${nameSize}" fill="white" class="text shadow">${escapeXml(name)}</text>`;
-        }
-
-        // 대사 표시
+        // 이름 및 대사 표시: opentype으로 로드되면 path로 렌더링, 아니면 <text>로 폰트 사용
         const lines = text.split("\n");
 
-        lines.forEach((line) => {
-            if (line.trim()) {
-                const wrappedLines = wrapText(line, maxCharsPerLine);
-                wrappedLines.forEach((wrappedLine) => {
-                    if (textY < boxTop + boxHeight - 15) {
-                        textSvg += `<text x="${boxMargin + padding}" y="${textY}" font-size="${fontSize_}" fill="white" class="text shadow">${escapeXml(wrappedLine)}</text>`;
-                        textY += lineHeight;
-                    }
-                });
+        if (fontObj) {
+            // 이름을 path로 렌더링
+            if (name) {
+                const namePath = fontObj.getPath(name, boxMargin + padding, nameY, nameSize);
+                const d = namePath.toPathData ? namePath.toPathData(2) : namePath.toSVG();
+                textSvg += `<path d="${d}" fill="white" />`;
             }
-        });
+
+            // 대사들을 path로 렌더링
+            lines.forEach((line) => {
+                if (line.trim()) {
+                    const wrappedLines = wrapText(line, maxCharsPerLine);
+                    wrappedLines.forEach((wrappedLine) => {
+                        if (textY < boxTop + boxHeight - 15) {
+                            const p = fontObj.getPath(wrappedLine, boxMargin + padding, textY, fontSize_);
+                            const dd = p.toPathData ? p.toPathData(2) : p.toSVG();
+                            textSvg += `<path d="${dd}" fill="white" />`;
+                            textY += lineHeight;
+                        }
+                    });
+                }
+            });
+        } else {
+            // 폰트가 없으면 일반 text 엘리먼트 사용
+            if (name) {
+                textSvg += `<text x="${boxMargin + padding}" y="${nameY}" font-size="${nameSize}" fill="white" class="text shadow">${escapeXml(name)}</text>`;
+            }
+
+            lines.forEach((line) => {
+                if (line.trim()) {
+                    const wrappedLines = wrapText(line, maxCharsPerLine);
+                    wrappedLines.forEach((wrappedLine) => {
+                        if (textY < boxTop + boxHeight - 15) {
+                            textSvg += `<text x="${boxMargin + padding}" y="${textY}" font-size="${fontSize_}" fill="white" class="text shadow">${escapeXml(wrappedLine)}</text>`;
+                            textY += lineHeight;
+                        }
+                    });
+                }
+            });
+        }
 
         textSvg += `</svg>`;
 
+        console.log('폰트 base64 존재:', !!fontBase64);
+        console.log('SVG 길이:', textSvg.length);
+
         // 이미지 처리
-        let result = sharp(imagePath).composite([{
-            input: Buffer.from(textSvg),
-            blend: 'over'
-        }]);
+        let result = sharp(imagePath).composite([
+            {
+                input: Buffer.from(textSvg),
+                blend: 'over'
+            }
+        ]);
 
         res.type("image/png");
         res.set("Cache-Control", "no-cache, no-store, must-revalidate");
-        const output = await result.png().toBuffer();
+        let output;
+        try {
+            output = await result.png().toBuffer();
+            console.log('생성된 이미지 바이트 길이:', output.length);
+        } catch (e) {
+            console.error('Sharp 변환 에러:', e);
+            throw e;
+        }
         res.send(output);
 
     } catch (err) {
@@ -127,10 +177,10 @@ function escapeXml(str) {
 function wrapText(text, maxChars) {
     if (!text || maxChars <= 0) return [text];
     if (text.length <= maxChars) return [text];
-    
+
     const lines = [];
     let current = "";
-    
+
     for (let char of text) {
         if (current.length >= maxChars) {
             lines.push(current);
@@ -139,7 +189,7 @@ function wrapText(text, maxChars) {
             current += char;
         }
     }
-    
+
     if (current) lines.push(current);
     return lines.length > 0 ? lines : [text];
 }
