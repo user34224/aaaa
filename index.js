@@ -45,10 +45,22 @@ app.get("/image", async (req, res) => {
         const boxWidth = width - (boxMargin * 2);
         const boxRadius = 15;
 
+        // 로컬 TTF 파일을 base64로 읽어 SVG에 임베드 (한글 폰트 깨짐 해결)
+        const fontPath = path.join(__dirname, "font", "Nanum.ttf");
+        let fontBase64 = null;
+        try {
+            if (fs.existsSync(fontPath)) {
+                fontBase64 = fs.readFileSync(fontPath).toString('base64');
+            }
+        } catch (e) {
+            console.warn('폰트 로드 실패:', e.message);
+        }
+
         let textSvg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
     <defs>
         <style>
-            .text { font-family: Arial, sans-serif; font-weight: bold; }
+            ${fontBase64 ? `@font-face { font-family: 'Nanum'; src: url('data:font/truetype;charset=utf-8;base64,${fontBase64}') format('truetype'); font-weight: normal; font-style: normal; }` : ''}
+            .text { font-family: 'Nanum', Arial, sans-serif; font-weight: bold; }
             .shadow { filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.8)); }
         </style>
     </defs>
