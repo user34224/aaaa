@@ -39,8 +39,8 @@ app.get("/image", async (req, res) => {
         const boxPadding = 30;
         const lineHeight = fontSize_ + 8;
 
-        // 밑부분 반투명 검은색 박스 설정
-        const boxHeight = Math.floor(height * 0.25);
+        // 밑부분 반투명 검은색 박스 설정 (조금 낮춤)
+        const boxHeight = Math.floor(height * 0.22);
         const boxMargin = 20;
         const boxTop = height - boxHeight - boxMargin;
         const boxWidth = width - (boxMargin * 2);
