@@ -18,6 +18,11 @@ app.get("/image", async (req, res) => {
         const fontSize = parseInt(req.query.size) || 28;
         const stat = req.query.stat || "stat";  // stat 파라미터 추가
 
+        // 캐시 키 생성 (파라미터 기반)
+        const cacheKey = `${imgNum}_${name}_${text}_${fontSize}_${stat}`;
+        res.set("Cache-Control", "public, max-age=31536000, immutable");
+        res.set("ETag", `"${cacheKey}"`);
+
         // 이미지 파일 찾기
         const imageFile = `${imgNum}.jpg`;
         const imagePath = path.join(mgDir, imageFile);
