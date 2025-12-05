@@ -16,6 +16,7 @@ app.get("/image", async (req, res) => {
         const text = req.query.text || "안녕하세요";
         const name = req.query.name || "";
         const fontSize = parseInt(req.query.size) || 28;
+        const stat = req.query.stat || "stat";  // stat 파라미터 추가
 
         // 이미지 파일 찾기
         const imageFile = `${imgNum}.jpg`;
@@ -87,6 +88,13 @@ app.get("/image", async (req, res) => {
         const charWidth = fontSize_ * 0.55;
         const maxCharsPerLine = Math.floor(maxWidth / charWidth);
 
+        // stat 박스 정보
+        const statFontSize = Math.floor(nameSize * 0.6);
+        const statBoxWidth = Math.floor(statFontSize * 4.5);
+        const statBoxHeight = Math.floor(statFontSize * 1.8);
+        const statBoxX = boxMargin + padding + Math.floor(nameSize * name.length * 0.55) + 40;
+        const statBoxY = nameY - Math.floor(statFontSize * 0.8);
+
         // 이름 및 대사 표시: opentype으로 로드되면 path로 렌더링, 아니면 <text>로 폰트 사용
         const lines = text.split("\n");
 
@@ -96,6 +104,11 @@ app.get("/image", async (req, res) => {
                 const namePath = fontObj.getPath(name, boxMargin + padding, nameY, nameSize);
                 const d = namePath.toPathData ? namePath.toPathData(2) : namePath.toSVG();
                 textSvg += `<path d="${d}" fill="white" />`;
+                
+                // stat 텍스트 추가 (이름 옆, 박스 없음)
+                const statPath = fontObj.getPath(stat, statBoxX, nameY, statFontSize);
+                const statD = statPath.toPathData ? statPath.toPathData(2) : statPath.toSVG();
+                textSvg += `<path d="${statD}" fill="white" />`;
             }
 
             // 대사들을 path로 렌더링
@@ -116,6 +129,9 @@ app.get("/image", async (req, res) => {
             // 폰트가 없으면 일반 text 엘리먼트 사용
             if (name) {
                 textSvg += `<text x="${boxMargin + padding}" y="${nameY}" font-size="${nameSize}" fill="white" class="text shadow">${escapeXml(name)}</text>`;
+                
+                // stat 텍스트 추가 (이름 옆, 박스 없음)
+                textSvg += `<text x="${statBoxX}" y="${nameY}" font-size="${statFontSize}" fill="white" class="text shadow">${escapeXml(stat)}</text>`;
             }
 
             lines.forEach((line) => {
