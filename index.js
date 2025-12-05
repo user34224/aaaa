@@ -104,7 +104,7 @@ app.get("/image", async (req, res) => {
                 const namePath = fontObj.getPath(name, boxMargin + padding, nameY, nameSize);
                 const d = namePath.toPathData ? namePath.toPathData(2) : namePath.toSVG();
                 textSvg += `<path d="${d}" fill="white" />`;
-                
+
                 // stat 텍스트 추가 (이름 옆, 박스 없음)
                 const statPath = fontObj.getPath(stat, statBoxX, nameY, statFontSize);
                 const statD = statPath.toPathData ? statPath.toPathData(2) : statPath.toSVG();
@@ -129,7 +129,7 @@ app.get("/image", async (req, res) => {
             // 폰트가 없으면 일반 text 엘리먼트 사용
             if (name) {
                 textSvg += `<text x="${boxMargin + padding}" y="${nameY}" font-size="${nameSize}" fill="white" class="text shadow">${escapeXml(name)}</text>`;
-                
+
                 // stat 텍스트 추가 (이름 옆, 박스 없음)
                 textSvg += `<text x="${statBoxX}" y="${nameY}" font-size="${statFontSize}" fill="white" class="text shadow">${escapeXml(stat)}</text>`;
             }
