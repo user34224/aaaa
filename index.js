@@ -165,7 +165,10 @@ app.get("/image", async (req, res) => {
         ]).resize(width, height, { fit: 'fill' });
 
         res.type("image/png");
-        res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.set({
+            "Cache-Control": "public, max-age=600",
+            "ETag": false
+        });
         let output;
         try {
             output = await result.png().toBuffer();
