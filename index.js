@@ -21,7 +21,6 @@ app.get("/image", async (req, res) => {
         // 캐시 키 생성 (파라미터 기반)
         const cacheKey = `${imgNum}_${name}_${text}_${fontSize}_${stat}`;
         res.set("Cache-Control", "public, max-age=31536000, immutable");
-        res.set("ETag", `"${cacheKey}"`);
 
         // 이미지 파일 찾기
         const imageFile = `${imgNum}.jpg`;
